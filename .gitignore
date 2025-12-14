@@ -1,0 +1,24 @@
+# Dependencies
+/node_modules
+
+# Environment Variables (CRITICAL for security)
+.env
+.env.local
+.env.*.local
+
+# Build artifacts (common for Node projects)
+/dist
+/build
+/temp
+
+# Logs and Debugging
+npm-debug.log*
+yarn-debug.log*
+.log
+
+# Operating System Files (e.g., Mac/Windows specific metadata)
+.DS_Store
+Thumbs.db
+
+# Optional: If you use VS Code for development
+.vscode/
