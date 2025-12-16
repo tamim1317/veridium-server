@@ -1,9 +1,12 @@
 const express = require('express');
-const { hrRegister, employeeRegister, login } = require('../controllers/authController');
+const { registerHrManager, loginUser } = require('../controllers/authController'); // <-- Import loginUser
+
 const router = express.Router();
 
-router.post('/hr-register', hrRegister);       
-router.post('/employee-register', employeeRegister); 
-router.post('/login', login);                 
+// Route for HR Manager registration
+router.post('/hr-register', registerHrManager);
+
+// Route for User Login (HR and Employee)
+router.post('/login', loginUser); // <-- New Login Route
 
 module.exports = router;
