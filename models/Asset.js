@@ -1,42 +1,52 @@
 const mongoose = require('mongoose');
 
-const AssetSchema = new mongoose.Schema({
-    // Link to the user who owns/controls this asset (the HR Manager/Company)
-    hrManagerId: {
+const assetSchema = new mongoose.Schema({
+    assetName: {
+        type: String,
+        required: true,
+        trim: true,
+    },
+    assetType: { 
+        type: String, 
+        required: true,
+        enum: ['Returnable', 'Non-returnable'], 
+    },
+    quantity: {
+        type: Number,
+        required: true,
+        min: 0, // Changed to 0 so assets can go "Out of Stock"
+    },
+    // Used for HR dashboard analytics
+    stockStatus: { 
+        type: String,
+        enum: ['Available', 'Out of Stock'],
+        default: 'Available',
+    },
+    companyName: { 
+        type: String,
+        required: true,
+        index: true,
+    },
+    addedBy: { 
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
         required: true,
     },
-    // The employee currently assigned to this asset
-    assignedTo: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
-        default: null, // Null if unassigned
+    // To track how many times this specific asset was requested
+    requestCount: {
+        type: Number,
+        default: 0
     },
-    name: {
-        type: String,
-        required: [true, 'Asset name is required'],
-        trim: true,
-    },
-    assetType: {
-        type: String,
-        required: [true, 'Asset type is required'],
-        enum: ['Laptop', 'Mobile', 'Monitor', 'Vehicle', 'Other'],
-    },
-    serialNumber: {
-        type: String,
-        unique: true,
-        required: [true, 'Serial number is required'],
-    },
-    purchaseDate: {
+    createdAt: {
         type: Date,
         default: Date.now,
     },
-    status: {
-        type: String,
-        enum: ['Available', 'Assigned', 'Under Maintenance', 'Retired'],
-        default: 'Available',
-    },
-}, { timestamps: true });
+});
 
-module.exports = mongoose.model('Asset', AssetSchema);
+// Middleware
+assetSchema.pre('save', function(next) {
+    this.stockStatus = this.quantity > 0 ? 'Available' : 'Out of Stock';
+    next();
+});
+
+module.exports = mongoose.model('Asset', assetSchema);

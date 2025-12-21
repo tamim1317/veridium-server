@@ -1,72 +1,66 @@
-const Asset = require('../models/Asset');
+const { ObjectId } = require('mongodb');
+const { connectDB } = require('../config/db');
 
-// 1. CREATE Asset (HR Only)
-const createAsset = async (req, res) => {
+//Add a New Asset (HR Only)
+const addAsset = async (req, res) => {
     try {
-        // HR Manager ID is taken from the verified JWT payload (req.user)
-        const asset = await Asset.create({ 
-            ...req.body, 
-            hrManagerId: req.user.id // Link asset to the HR Manager creating it
-        });
-        res.status(201).json({ asset });
-    } catch (error) {
-        res.status(400).json({ message: 'Failed to create asset.', error: error.message });
-    }
-};
-
-// 2. READ Assets (HR can see all their assets, Employee can only see their assigned asset)
-const getAssets = async (req, res) => {
-    try {
-        let filter = {};
+        const db = await connectDB();
+        const assetsCollection = db.collection('assets');
         
-        if (req.user.role === 'hr') {
-            // HR sees all assets they manage
-            filter.hrManagerId = req.user.id;
-        } else if (req.user.role === 'employee') {
-            // Employee only sees assets assigned to them
-            filter.assignedTo = req.user.id;
-        }
+        const { productName, productType, productQuantity } = req.body;
+        const hrEmail = req.user.email; // From verifyToken
 
-        const assets = await Asset.find(filter).populate('assignedTo', 'name email');
-        res.status(200).json({ assets });
+        const newAsset = {
+            productName,
+            productType,
+            productQuantity: parseInt(productQuantity),
+            availableQuantity: parseInt(productQuantity),
+            dateAdded: new Date(),
+            hrEmail,
+            companyName: req.body.companyName
+        };
+
+        const result = await assetsCollection.insertOne(newAsset);
+        res.status(201).json(result);
     } catch (error) {
-        res.status(500).json({ message: 'Failed to retrieve assets.', error: error.message });
+        res.status(500).json({ message: "Failed to add asset" });
     }
 };
 
-// 3. UPDATE Asset (HR Only)
-const updateAsset = async (req, res) => {
+//Asset List with Pagination & Search (HR Only)
+const getHRAssets = async (req, res) => {
     try {
-        const asset = await Asset.findOneAndUpdate(
-            { _id: req.params.id, hrManagerId: req.user.id }, // Find by ID AND ensure HR owns it
-            req.body,
-            { new: true, runValidators: true }
-        );
+        const db = await connectDB();
+        const assetsCollection = db.collection('assets');
+        
+        const hrEmail = req.user.email;
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const search = req.query.search || "";
+        const skip = (page - 1) * limit;
 
-        if (!asset) {
-            return res.status(404).json({ message: 'Asset not found or unauthorized.' });
-        }
-        res.status(200).json({ asset });
-    } catch (error) {
-        res.status(400).json({ message: 'Failed to update asset.', error: error.message });
-    }
-};
+        const query = {
+            hrEmail: hrEmail,
+            productName: { $regex: search, $options: 'i' }
+        };
 
-// 4. DELETE Asset (HR Only)
-const deleteAsset = async (req, res) => {
-    try {
-        const asset = await Asset.findOneAndDelete({ 
-            _id: req.params.id, 
-            hrManagerId: req.user.id // Find by ID AND ensure HR owns it
+        const assets = await assetsCollection.find(query)
+            .skip(skip)
+            .limit(limit)
+            .sort({ dateAdded: -1 })
+            .toArray();
+
+        const totalAssets = await assetsCollection.countDocuments(query);
+
+        res.json({
+            assets,
+            totalPages: Math.ceil(totalAssets / limit),
+            currentPage: page,
+            totalItems: totalAssets
         });
-
-        if (!asset) {
-            return res.status(404).json({ message: 'Asset not found or unauthorized.' });
-        }
-        res.status(200).json({ message: 'Asset deleted successfully.' });
     } catch (error) {
-        res.status(500).json({ message: 'Failed to delete asset.', error: error.message });
+        res.status(500).json({ message: "Error fetching assets" });
     }
 };
 
-module.exports = { createAsset, getAssets, updateAsset, deleteAsset };
+module.exports = { addAsset, getHRAssets };
