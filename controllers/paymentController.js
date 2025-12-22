@@ -1,5 +1,5 @@
+require('dotenv').config();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const { connectDB } = require('../config/db');
 
 //Create Payment Intent
 const createPaymentIntent = async (req, res) => {

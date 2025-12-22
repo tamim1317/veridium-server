@@ -4,10 +4,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-// Models
 const User = require('./models/User'); 
-
-// Routes (Assuming you have modularized them for cleanliness)
 const assetRoutes = require('./routes/assetRoutes');
 const requestRoutes = require('./routes/requestRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
@@ -16,73 +13,53 @@ const statsRoutes = require('./routes/statsRoutes');
 const app = express();
 const port = process.env.PORT || 5000;
 
-// --- Middleware ---
+// Middleware
 app.use(cors({
     origin: ['http://localhost:5173'],
     credentials: true
 }));
 app.use(express.json());
 
-// --- Database Connection ---
+// Database Connection
 mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ Veridium MongoDB connected via Mongoose'))
-  .catch(err => console.error('❌ Connection error:', err));
+  .then(() => console.log('Veridium MongoDB connected'))
+  .catch(err => console.error('Connection error:', err));
 
 // --- Security Middlewares ---
 
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        return res.status(401).send({ message: 'Unauthorized access: No token' });
+        return res.status(401).send({ message: 'Unauthorized: Missing Token' });
     }
     const token = authHeader.split(' ')[1];
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
-        if (err) {
-            return res.status(403).send({ message: 'Forbidden access: Invalid token' });
-        }
+        if (err) return res.status(403).send({ message: 'Forbidden: Invalid Token' });
         req.decoded = decoded;
         next();
     });
 };
 
-const verifyHR = async (req, res, next) => {
-    const email = req.decoded?.email;
-    const user = await User.findOne({ email });
-    if (user?.role !== 'hr') {
-        return res.status(403).send({ message: 'Forbidden: HR Manager access required' });
-    }
-    next();
-};
+// --- Routes ---
 
-// --- Authentication Routes ---
-
-// JWT Generation
 app.post('/jwt', async (req, res) => {
-    try {
-        const user = req.body; 
-        const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '24h' });
-        res.send({ token });
-    } catch (error) {
-        res.status(500).send({ message: "JWT Generation Failed" });
-    }
+    const user = req.body; 
+    const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '24h' });
+    res.send({ token });
 });
 
-// Save User (Registration Logic with Role-Specific Defaults)
 app.post('/users', async (req, res) => {
     const user = req.body;
     try {
         const existingUser = await User.findOne({ email: user.email });
-        if (existingUser) {
-            return res.send({ message: 'User already exists', insertedId: null });
-        }
+        if (existingUser) return res.send({ message: 'User exists', insertedId: null });
         
-        // HR specific logic
         if (user.role === 'hr') {
-            user.packageLimit = 5;      // Default for HR
+            user.packageLimit = 5; 
             user.currentEmployees = 0;
             user.subscription = 'basic';
         } else {
-            user.role = 'employee';     // Default for others
+            user.role = 'employee'; 
         }
 
         const newUser = new User(user);
@@ -93,11 +70,16 @@ app.post('/users', async (req, res) => {
     }
 });
 
-// Get User Role & Data (Used by AuthProvider on refresh)
+// GET user role - Fixed to return role: null instead of 404 to stop frontend errors
 app.get('/users/role/:email', verifyToken, async (req, res) => {
     try {
-        const user = await User.findOne({ email: req.params.email });
-        if (!user) return res.status(404).send({ role: null });
+        const { email } = req.params;
+        const user = await User.findOne({ email });
+        
+        if (!user) {
+            // Returning 200 with role
+            return res.send({ role: null, message: "User not in database" });
+        }
         
         res.send({ 
             role: user.role, 
@@ -110,16 +92,11 @@ app.get('/users/role/:email', verifyToken, async (req, res) => {
     }
 });
 
-// --- Functional Routes ---
 app.use('/assets', assetRoutes);
 app.use('/requests', requestRoutes);
 app.use('/payments', paymentRoutes);
 app.use('/stats', statsRoutes);
 
-// --- Base Routes ---
-app.get('/', (req, res) => res.send('Veridium API is Active and Secure '));
+app.get('/', (req, res) => res.send('Veridium API is Active'));
 
-// 404 Handler
-app.use((req, res) => res.status(404).send({ message: 'Route not found' }));
-
-app.listen(port, () => console.log(`💻 Server running on port ${port}`));
+app.listen(port, () => console.log(`Server running on port ${port}`));
