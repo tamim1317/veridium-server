@@ -19,7 +19,7 @@ Payments: Stripe API
 
 Tools: Dotenv, Cors, Mongodb
 
-✨ Key Features
+Key Features
 Role-Based Middlewares: Strict verifyToken and verifyHR gates to protect sensitive company data.
 
 Dynamic Affiliation System: Automatically links employees to companies upon asset approval while enforcing package limits.
@@ -41,7 +41,7 @@ requests: Tracks the lifecycle of asset requests.
 
 affiliations: Maps employees to multiple companies.
 
-⚙️ Environment Variables
+Environment Variables
 Create a .env file in the root directory and add the following:
 
 Code snippet
@@ -52,18 +52,17 @@ DB_PASS=your_mongodb_password
 MONGO_URI=your_mongodb_connection_string
 JWT_SECRET=your_unique_jwt_secret
 STRIPE_SECRET_KEY=your_stripe_secret_key
-📦 Local Installation
+Local Installation
 Clone the repository:
+```
+bash
+git clone (https://github.com/tamim1317/veridium-server.git)
 
-Bash
-
-git clone https://github.com/your-username/veridium-server.git
 Install dependencies:
-
 Bash
 
 npm install
-Run the development server:
+Run the development server:https://veridium-server.vercel.app/
 
 Bash
 
