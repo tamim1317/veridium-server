@@ -3,8 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
-
-const User = require('./models/User'); 
+const User = require('./models/User');
 const assetRoutes = require('./routes/assetRoutes');
 const requestRoutes = require('./routes/requestRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
@@ -23,15 +22,28 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+app.options('*', cors());
 app.use(express.json());
 
 // Database Connection
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('Veridium MongoDB connected'))
-  .catch(err => console.error('Connection error:', err));
+let isConnected = false;
+const connectDB = async () => {
+  if (isConnected) return;
+  try {
+    await mongoose.connect(process.env.MONGODB_URI, {
+      serverSelectionTimeoutMS: 5000,
+      bufferCommands: false,
+    });
+    isConnected = true;
+    console.log('Veridium MongoDB connected');
+  } catch (err) {
+    console.error('Connection error:', err);
+  }
+};
+connectDB();
 
 // --- Security Middlewares ---
-
 const verifyToken = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -46,9 +58,8 @@ const verifyToken = (req, res, next) => {
 };
 
 // --- Routes ---
-
 app.post('/jwt', async (req, res) => {
-    const user = req.body; 
+    const user = req.body;
     const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '24h' });
     res.send({ token });
 });
@@ -56,17 +67,17 @@ app.post('/jwt', async (req, res) => {
 app.post('/users', async (req, res) => {
     const user = req.body;
     try {
+        await connectDB();
         const existingUser = await User.findOne({ email: user.email });
         if (existingUser) return res.send({ message: 'User exists', insertedId: null });
-        
+
         if (user.role === 'hr') {
-            user.packageLimit = 5; 
+            user.packageLimit = 5;
             user.currentEmployees = 0;
             user.subscription = 'basic';
         } else {
-            user.role = 'employee'; 
+            user.role = 'employee';
         }
-
         const newUser = new User(user);
         const result = await newUser.save();
         res.status(201).send({ insertedId: result._id });
@@ -75,22 +86,21 @@ app.post('/users', async (req, res) => {
     }
 });
 
-// GET user role - Fixed to return role: null instead of 404 to stop frontend errors
 app.get('/users/role/:email', verifyToken, async (req, res) => {
     try {
+        await connectDB();
         const { email } = req.params;
         const user = await User.findOne({ email });
-        
+
         if (!user) {
-            // Returning 200 with role
             return res.send({ role: null, message: "User not in database" });
         }
-        
-        res.send({ 
-            role: user.role, 
-            companyName: user.companyName, 
+
+        res.send({
+            role: user.role,
+            companyName: user.companyName,
             companyLogo: user.companyLogo,
-            packageLimit: user.packageLimit 
+            packageLimit: user.packageLimit
         });
     } catch (error) {
         res.status(500).send({ message: "Server Error" });
@@ -105,3 +115,5 @@ app.use('/stats', statsRoutes);
 app.get('/', (req, res) => res.send('Veridium API is Active'));
 
 app.listen(port, () => console.log(`Server running on port ${port}`));
+
+module.exports = app;
