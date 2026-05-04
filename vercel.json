@@ -9,6 +9,18 @@
   "routes": [
     {
       "src": "/(.*)",
+      "methods": ["OPTIONS"],
+      "headers": {
+        "Access-Control-Allow-Origin": "https://veridium.netlify.app",
+        "Access-Control-Allow-Methods": "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        "Access-Control-Allow-Headers": "Content-Type,Authorization",
+        "Access-Control-Allow-Credentials": "true"
+      },
+      "dest": "api/index.js",
+      "status": 200
+    },
+    {
+      "src": "/(.*)",
       "dest": "api/index.js"
     }
   ]
